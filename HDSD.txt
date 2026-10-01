@@ -1,0 +1,9 @@
+﻿=== QLTK NST ===
+
+1. Click setup.bat để cài đặt môi trường (chỉ lần đầu)
+2. Cài xong đưa phiên bản vào cùng folder chứa tool
+3. Click mở QLTK_NST.exe và sử dụng thôi
+
+Lưu ý:
+- Không được xóa bất cứ file nào tránh mất data game
+- Chỉ sử dụng được các bản của nsotien.com, bạn muốn dùng bản free thì tải ở https://nsotien.com/ban-hack-ninja

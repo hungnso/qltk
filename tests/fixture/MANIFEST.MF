@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+MIDlet-Name: QLTKFixture
+MIDlet-Version: 1.0
+MIDlet-Vendor: LocalTests
+MIDlet-1: QLTKFixture,,GameMidlet
+MicroEdition-Configuration: CLDC-1.1
+MicroEdition-Profile: MIDP-2.0
+

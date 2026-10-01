@@ -1,0 +1,41 @@
+<config>
+	<devices>
+		<device DEFAULT="true">
+			<name>Resizable device</name>
+			<filename/>
+			<descriptor>org/microemu/device/resizable/device.xml</descriptor>
+		</device>
+		<device>
+			<name>NST Gray</name>
+			<filename/>
+			<descriptor>org/microemu/device/resizable/gray_device.xml</descriptor>
+		</device>
+		<device>
+			<name>NST Black</name>
+			<filename/>
+			<descriptor>org/microemu/device/resizable/black_device.xml</descriptor>
+		</device>
+	</devices>
+	<files>
+		<recent MAXCAPACITY="10">
+			<midlet>
+				<name>AUTO50_X1</name>
+				<url>file:///C:/Users/Admin/Desktop/game/dapdonso/nso2-main/build/e90_auto_account_resume_watchdog.jar</url>
+			</midlet>
+		</recent>
+	</files>
+	<system-properties>
+		<system-property VALUE="MIDP-2.0" NAME="microedition.profiles"/>
+		<system-property VALUE="CLDC-1.0" NAME="microedition.configuration"/>
+		<system-property VALUE="true" NAME="avetana.forceNativeLibrary"/>
+	</system-properties>
+	<windows>
+		<main ONSTART="true">
+			<x>256</x>
+			<y>0</y>
+			<width>240</width>
+			<height>330</height>
+		</main>
+	</windows>
+	<chipAutoSleep ENABLED="false"/>
+</config>

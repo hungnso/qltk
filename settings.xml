@@ -1,0 +1,13 @@
+﻿<Settings>
+  <EmulatorPath>C:\Users\Admin\Desktop\QLTK_NST\TOOL_QLTK\MICRO_NST.jar</EmulatorPath>
+  <GamePath>C:\Users\Admin\Desktop\game\dapdonso\nso2-main\build\e90_auto_account_resume_watchdog.jar</GamePath>
+  <TabWidth>220</TabWidth>
+  <TabHeight>240</TabHeight>
+  <MaxTab>5</MaxTab>
+  <MultiData>true</MultiData>
+  <AutoLogin>true</AutoLogin>
+  <AutoNst>false</AutoNst>
+  <AutoNstTabs></AutoNstTabs>
+  <AutoNstDelay>10</AutoNstDelay>
+  <TabProxyMap></TabProxyMap>
+</Settings>
