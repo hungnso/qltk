@@ -11,7 +11,7 @@ $helper = Join-Path $root 'build/compiler-helper'
 New-Item -ItemType Directory -Path $helper -Force | Out-Null
 & $javac -encoding UTF-8 -d $helper (Join-Path $root 'tools/CompileJava.java')
 if ($LASTEXITCODE -ne 0) { throw 'Compiler helper build failed.' }
-& (Join-Path $JdkPath 'bin/java.exe') -cp $helper CompileJava (Join-Path $root 'MICRO_NST.jar') $classes (Join-Path $root 'src/AccountBootstrap.java') (Join-Path $root 'src/GameAccountObserver.java')
+& (Join-Path $JdkPath 'bin/java.exe') -cp $helper CompileJava (Join-Path $root 'MICRO_NST.jar') $classes (Join-Path $root 'src/AccountBootstrap.java') (Join-Path $root 'src/GameAccountObserver.java') (Join-Path $root 'src/ItemStatistics.java')
 if ($LASTEXITCODE -ne 0) { throw 'Bridge compilation failed.' }
 & $jar cf (Join-Path $root 'account-bridge.jar') -C $classes .
 if ($LASTEXITCODE -ne 0) { throw 'Bridge packaging failed.' }

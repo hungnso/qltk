@@ -13,9 +13,10 @@ namespace QltkAccounts
 {
     sealed class RunningTab
     {
-        public Account Account; public int Id; public Process Process;
+        public Account Account; public int Id, Width, Height; public Process Process;
         public string Home, Status = "Đang mở…", CharacterInfo = "Chưa vào game";
         public bool Positioned;
+        public CharacterSnapshot Snapshot;
     }
     public sealed class AccountManager : Form
     {
@@ -24,6 +25,14 @@ namespace QltkAccounts
         readonly TextBox errors = new TextBox();
         readonly Label summary = new Label();
         readonly Button openSelected = new Button(), openAll = new Button(), reload = new Button();
+        readonly TableLayoutPanel launchConfig = new TableLayoutPanel();
+        readonly TextBox emulatorPath = new TextBox { Name = "emulatorPath" }, gamePath = new TextBox { Name = "gamePath" };
+        readonly NumericUpDown tabWidth = new NumericUpDown { Name = "tabWidth", Minimum = 100, Maximum = 2000, Value = 220, Width = 70 };
+        readonly NumericUpDown tabHeight = new NumericUpDown { Name = "tabHeight", Minimum = 100, Maximum = 2000, Value = 240, Width = 70 };
+        readonly CheckBox autoLogin = new CheckBox { Name = "autoLogin", Text = "Auto login", AutoSize = true, Checked = true };
+        readonly CheckBox showUnder8 = new CheckBox { Name = "showUnder8", Text = "Hiện đồ dưới +8", AutoSize = true };
+        readonly CheckBox showTrackedItems = new CheckBox { Name = "showTrackedItems", Text = "Hiện vật phẩm theo ID", AutoSize = true };
+        readonly TextBox trackedItemIds = new TextBox { Name = "trackedItemIds", Width = 240, MaxLength = 2048 };
         readonly Dictionary<string, RunningTab> running = new Dictionary<string, RunningTab>();
         readonly Queue<Account> pending = new Queue<Account>();
         readonly System.Windows.Forms.Timer poll = new System.Windows.Forms.Timer();
@@ -37,32 +46,40 @@ namespace QltkAccounts
         {
             this.root = root;
             Text = "QLTK NST — Quản lý accounts.txt";
-            StartPosition = FormStartPosition.CenterScreen; Size = new Size(1180, 570); MinimumSize = new Size(900, 450);
-            Font = new Font("Segoe UI", 10);
+            StartPosition = FormStartPosition.CenterScreen; Size = new Size(1280, 640); MinimumSize = new Size(900, 480);
+            Font = new Font("Segoe UI", 9);
             var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 56, Padding = new Padding(8), WrapContents = false };
             AddButton(toolbar, reload, "Đọc lại danh sách", delegate { LoadAccounts(); });
             AddButton(toolbar, openSelected, "Mở tài khoản đã chọn", delegate { QueueLaunch(SelectedAccounts()); });
             AddButton(toolbar, openAll, "Mở tất cả", delegate { QueueLaunch(accounts.ToList()); });
             var show = new Button(); AddButton(toolbar, show, "Hiện tab", delegate { ShowSelected(); });
             var close = new Button(); AddButton(toolbar, close, "Đóng tab đã chọn", delegate { CloseSelected(); });
+            BuildConfiguration();
             grid.Dock = DockStyle.Fill; grid.AllowUserToAddRows = false; grid.AllowUserToDeleteRows = false;
             grid.RowHeadersVisible = false; grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             grid.MultiSelect = true; grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             grid.BackgroundColor = Color.White; grid.AllowUserToOrderColumns = false;
-            grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
-            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "chosen", HeaderText = "Chọn", FillWeight = 35 });
+            grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
+            grid.RowTemplate.Height = 24;
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "chosen", HeaderText = "Chọn", FillWeight = 35, MinimumWidth = 55 });
             foreach (string[] column in new[] { new[] { "username", "Tài khoản" }, new[] { "server", "Server" }, new[] { "tab", "Tab" }, new[] { "status", "Trạng thái" }, new[] { "character", "Thông tin NV" } }) {
                 var c = new DataGridViewTextBoxColumn { Name = column[0], HeaderText = column[1], ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable };
-                if (column[0] == "tab") c.FillWeight = 35;
-                if (column[0] == "status") c.FillWeight = 130;
-                if (column[0] == "character") { c.FillWeight = 220; c.DefaultCellStyle.WrapMode = DataGridViewTriState.True; }
+                if (column[0] == "username") c.MinimumWidth = 120;
+                if (column[0] == "server") c.MinimumWidth = 160;
+                if (column[0] == "tab") { c.FillWeight = 35; c.MinimumWidth = 50; }
+                if (column[0] == "status") { c.FillWeight = 130; c.MinimumWidth = 180; }
+                if (column[0] == "character") { c.FillWeight = 350; c.MinimumWidth = 500; c.DefaultCellStyle.WrapMode = DataGridViewTriState.False; }
                 grid.Columns.Add(c);
             }
+            foreach (string[] column in new[] { new[] { "under8", "Đồ đang mặc dưới +8" }, new[] { "items", "Vật phẩm theo ID" } })
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = column[0], HeaderText = column[1], ReadOnly = true, Visible = false, MinimumWidth = 260, FillWeight = 190, SortMode = DataGridViewColumnSortMode.NotSortable });
+            showUnder8.CheckedChanged += delegate { ApplyStatisticsVisibility(); };
+            showTrackedItems.CheckedChanged += delegate { ApplyStatisticsVisibility(); };
             grid.CellDoubleClick += delegate(object sender, DataGridViewCellEventArgs e) { if (e.RowIndex >= 0) ShowSelected(); };
             grid.CurrentCellDirtyStateChanged += delegate { if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
             errors.Dock = DockStyle.Bottom; errors.Height = 88; errors.Multiline = true; errors.ReadOnly = true; errors.ScrollBars = ScrollBars.Vertical;
             summary.Dock = DockStyle.Bottom; summary.Height = 32; summary.Padding = new Padding(8, 5, 0, 0);
-            Controls.Add(grid); Controls.Add(errors); Controls.Add(summary); Controls.Add(toolbar);
+            Controls.Add(grid); Controls.Add(errors); Controls.Add(summary); Controls.Add(toolbar); Controls.Add(launchConfig);
             launchTimer.Interval = 1200; launchTimer.Tick += delegate { LaunchNext(); };
             poll.Interval = 800; poll.Tick += delegate { RefreshStatuses(); };
             LoadAccounts(); poll.Start();
@@ -72,11 +89,72 @@ namespace QltkAccounts
         {
             button.Text = title; button.AutoSize = true; button.Height = 34; button.Click += action; panel.Controls.Add(button);
         }
+        void BuildConfiguration()
+        {
+            launchConfig.Name = "launchConfig"; launchConfig.Dock = DockStyle.Top; launchConfig.Height = 144;
+            launchConfig.Padding = new Padding(8); launchConfig.ColumnCount = 3; launchConfig.RowCount = 4;
+            launchConfig.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+            launchConfig.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            launchConfig.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+            for (int row = 0; row < 4; row++) launchConfig.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            AddPathRow("Emulator:", emulatorPath, 0); AddPathRow("Game:", gamePath, 1);
+            launchConfig.Controls.Add(new Label { Text = "Kích thước tab:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
+            var sizes = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0) };
+            sizes.Controls.Add(tabWidth); sizes.Controls.Add(new Label { Text = "×", AutoSize = true, Margin = new Padding(4, 5, 4, 0) });
+            sizes.Controls.Add(tabHeight); autoLogin.Margin = new Padding(20, 5, 0, 0); sizes.Controls.Add(autoLogin);
+            sizes.Controls.Add(new Label { Text = "Áp dụng khi mở tab mới", AutoSize = true, Margin = new Padding(20, 5, 0, 0) });
+            launchConfig.Controls.Add(sizes, 1, 2);
+            var save = new Button { Name = "saveConfig", Text = "Lưu cấu hình", Dock = DockStyle.Fill, AutoSize = true };
+            save.Click += delegate { SaveConfiguration(true); }; launchConfig.Controls.Add(save, 2, 2);
+            launchConfig.Controls.Add(new Label { Text = "Thống kê:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
+            var stats = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0) };
+            showUnder8.Margin = new Padding(3, 5, 12, 0); showTrackedItems.Margin = new Padding(3, 5, 12, 0);
+            stats.Controls.Add(showUnder8); stats.Controls.Add(showTrackedItems);
+            stats.Controls.Add(new Label { Text = "ID:", AutoSize = true, Margin = new Padding(0, 5, 3, 0) }); stats.Controls.Add(trackedItemIds);
+            stats.Controls.Add(new Label { Text = "Ví dụ: 123,456", AutoSize = true, Margin = new Padding(8, 5, 0, 0) });
+            launchConfig.Controls.Add(stats, 1, 3); launchConfig.SetColumnSpan(stats, 2);
+        }
+        void ApplyStatisticsVisibility()
+        {
+            grid.Columns["under8"].Visible = showUnder8.Checked; grid.Columns["items"].Visible = showTrackedItems.Checked;
+        }
+        void AddPathRow(string title, TextBox input, int row)
+        {
+            launchConfig.Controls.Add(new Label { Text = title, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row);
+            input.Dock = DockStyle.Fill; launchConfig.Controls.Add(input, 1, row);
+            var browse = new Button { Text = "Duyệt", Dock = DockStyle.Fill };
+            browse.Click += delegate {
+                using (var dialog = new OpenFileDialog { Title = "Chọn " + title.TrimEnd(':'), Filter = "File Java (*.jar)|*.jar", CheckFileExists = true }) {
+                    if (File.Exists(input.Text)) { dialog.InitialDirectory = Path.GetDirectoryName(input.Text); dialog.FileName = Path.GetFileName(input.Text); }
+                    else dialog.InitialDirectory = root;
+                    if (dialog.ShowDialog(this) == DialogResult.OK) input.Text = dialog.FileName;
+                }
+            };
+            launchConfig.Controls.Add(browse, 2, row);
+        }
+        void ShowConfiguration()
+        {
+            emulatorPath.Text = settings.EmulatorPath; gamePath.Text = settings.GamePath;
+            tabWidth.Value = settings.Width; tabHeight.Value = settings.Height; autoLogin.Checked = settings.AutoLogin;
+            showUnder8.Checked = settings.ShowUnder8; showTrackedItems.Checked = settings.ShowTrackedItems;
+            trackedItemIds.Text = string.Join(",", settings.TrackedItemIds); ApplyStatisticsVisibility();
+        }
+        bool SaveConfiguration(bool showMessage)
+        {
+            if (pending.Count > 0) return false;
+            try {
+                AppSettings.SaveLaunch(root, emulatorPath.Text, gamePath.Text, (int)tabWidth.Value, (int)tabHeight.Value, autoLogin.Checked, showUnder8.Checked, showTrackedItems.Checked, trackedItemIds.Text);
+                settings = AppSettings.Load(root); ShowConfiguration();
+                if (showMessage) errors.Text = "Đã lưu cấu hình. Phiên bản và kích thước áp dụng cho tab mở mới; đóng rồi mở lại tab cũ để áp dụng.";
+                return true;
+            } catch (Exception ex) { errors.Text = "Không lưu được cấu hình: " + ex.Message; return false; }
+        }
         void LoadAccounts()
         {
             if (pending.Count > 0) return;
             try {
                 settings = AppSettings.Load(root);
+                ShowConfiguration();
                 if (registry == null) registry = new TabRegistry(Path.Combine(root, "data", "accounts", "tabs.xml"));
                 string[] servers = File.ReadAllLines(Path.Combine(root, "servers.txt"), System.Text.Encoding.UTF8).Select(s => s.Trim().TrimStart('\uFEFF')).Where(s => s.Length > 0 && !s.StartsWith("#")).ToArray();
                 if (servers.Length == 0 || servers.Distinct(StringComparer.OrdinalIgnoreCase).Count() != servers.Length) throw new InvalidDataException("servers.txt trống hoặc có server trùng nhau.");
@@ -107,6 +185,7 @@ namespace QltkAccounts
         {
             if (pending.Count > 0 || failedConfig) return;
             if (selected.Count == 0) { errors.Text = "Chọn ít nhất một tài khoản để mở."; return; }
+            if (!SaveConfiguration(false)) return;
             try {
                 settings = AppSettings.Load(root);
                 foreach (string path in new[] { settings.JavaPath, settings.EmulatorPath, settings.GamePath, Path.Combine(root, "account-bridge.jar") })
@@ -137,18 +216,19 @@ namespace QltkAccounts
                 };
                 start.EnvironmentVariables["QLTK_ACCOUNT_USER"] = account.Username;
                 start.EnvironmentVariables["QLTK_ACCOUNT_PASS"] = account.Password;
+                start.EnvironmentVariables["QLTK_STATISTICS_FILE"] = Path.Combine(root, "settings.xml");
                 var process = new Process { StartInfo = start };
                 // Discard emulator output, which may include sensitive game messages.
                 process.OutputDataReceived += delegate { }; process.ErrorDataReceived += delegate { };
                 try { if (!process.Start()) throw new IOException("Java không khởi động."); process.BeginOutputReadLine(); process.BeginErrorReadLine(); }
                 catch { process.Dispose(); throw; }
-                running.Add(account.Key, new RunningTab { Account = account, Id = id, Process = process, Home = home });
+                running.Add(account.Key, new RunningTab { Account = account, Id = id, Process = process, Home = home, Width = settings.Width, Height = settings.Height });
             } catch (Exception ex) {
                 errors.Text += Environment.NewLine + "Dòng " + account.Line + ": không mở được tab — " + ex.Message;
                 SetRowStatus(account.Key, "Lỗi mở tab");
             } finally { if (pending.Count == 0) launchTimer.Stop(); SetButtons(); RefreshStatuses(); }
         }
-        void SetButtons() { bool ready = !failedConfig && pending.Count == 0; openAll.Enabled = ready; openSelected.Enabled = ready; reload.Enabled = pending.Count == 0; }
+        void SetButtons() { bool ready = !failedConfig && pending.Count == 0; openAll.Enabled = ready; openSelected.Enabled = ready; reload.Enabled = pending.Count == 0; launchConfig.Enabled = pending.Count == 0; }
         void SetRowStatus(string key, string value) { foreach (DataGridViewRow row in grid.Rows) if (((Account)row.Tag).Key == key) row.Cells["status"].Value = value; }
         void RefreshStatuses()
         {
@@ -177,12 +257,19 @@ namespace QltkAccounts
                     string characterFile = Path.Combine(tab.Home, "character.xml");
                     if (File.Exists(characterFile)) {
                         try {
-                            string display = CharacterSnapshot.Parse(File.ReadAllText(characterFile)).Display;
-                            if (DateTime.UtcNow - File.GetLastWriteTimeUtc(characterFile) > TimeSpan.FromSeconds(15)) display = "Thông tin chưa cập nhật" + Environment.NewLine + display;
+                            tab.Snapshot = CharacterSnapshot.Parse(File.ReadAllText(characterFile));
+                            string display = tab.Snapshot.Display;
+                            if (DateTime.UtcNow - File.GetLastWriteTimeUtc(characterFile) > TimeSpan.FromSeconds(15)) display = "Thông tin chưa cập nhật | " + display;
                             tab.CharacterInfo = display;
-                        } catch (Exception ex) { if (ex is System.Xml.XmlException || ex is InvalidDataException) tab.CharacterInfo = "Chưa đọc được thông tin NV"; else throw; }
+                        } catch (Exception ex) { if (ex is System.Xml.XmlException || ex is InvalidDataException) { tab.CharacterInfo = "Chưa đọc được thông tin NV"; tab.Snapshot = null; } else throw; }
                     }
-                    foreach (DataGridViewRow row in grid.Rows) if (((Account)row.Tag).Key == pair.Key) row.Cells["character"].Value = tab.CharacterInfo;
+                    foreach (DataGridViewRow row in grid.Rows) if (((Account)row.Tag).Key == pair.Key) {
+                        row.Cells["character"].Value = tab.CharacterInfo;
+                        bool stale = !File.Exists(characterFile) || DateTime.UtcNow - File.GetLastWriteTimeUtc(characterFile) > TimeSpan.FromSeconds(15);
+                        string prefix = stale ? "Thông tin chưa cập nhật | " : "";
+                        row.Cells["under8"].Value = prefix + (tab.Snapshot == null ? "Chưa đọc được trang bị" : tab.Snapshot.EquipmentDisplay);
+                        row.Cells["items"].Value = prefix + (settings.TrackedItemIds.Length == 0 ? "Nhập ID rồi lưu cấu hình" : tab.Snapshot == null ? "Chưa đọc được vật phẩm" : tab.Snapshot.InventoryDisplay(settings.TrackedItemIds));
+                    }
                 } catch (IOException) { } catch (InvalidOperationException) { }
             }
             foreach (var account in pending) SetRowStatus(account.Key, "Đang chờ mở…");
@@ -193,7 +280,7 @@ namespace QltkAccounts
         {
             IntPtr handle = tab.Process.MainWindowHandle;
             SetWindowText(handle, "Tab " + tab.Id + " — " + tab.Account.Username + " — " + tab.Account.Server);
-            int width = settings.Width + 20, height = settings.Height + 90;
+            int width = tab.Width + 20, height = tab.Height + 90;
             Rectangle screen = Screen.PrimaryScreen.WorkingArea; int columns = Math.Max(1, screen.Width / width);
             int x = screen.Left + ((tab.Id - 1) % columns) * width;
             int y = screen.Top + (((tab.Id - 1) / columns) * height) % Math.Max(1, screen.Height - height + 1);

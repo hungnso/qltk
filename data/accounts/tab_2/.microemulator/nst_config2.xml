@@ -31,10 +31,10 @@
 	</system-properties>
 	<windows>
 		<main ONSTART="true">
-			<x>256</x>
+			<x>496</x>
 			<y>0</y>
-			<width>240</width>
-			<height>330</height>
+			<width>220</width>
+			<height>240</height>
 		</main>
 	</windows>
 	<chipAutoSleep ENABLED="false"/>

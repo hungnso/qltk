@@ -65,7 +65,11 @@ public final class AccountBootstrap {
             selector.getDeclaredField("name"); selector.getDeclaredField("indexSelect"); selector.getDeclaredMethod("perform", int.class, Object.class);
             Class<?> character = Class.forName("Char", false, loader);
             character.getDeclaredMethod("getMyChar");
-            for (String name : new String[] { "cName", "clevel", "xu", "luong", "xuInBox", "arrItemBox" }) character.getDeclaredField(name);
+            for (String name : new String[] { "cName", "clevel", "xu", "luong", "xuInBox", "arrItemBox", "arrItemBody" }) character.getDeclaredField(name);
+            Class<?> item = Class.forName("Item", false, loader);
+            item.getDeclaredField("template"); item.getDeclaredField("upgrade");
+            Class<?> itemTemplate = Class.forName("ItemTemplate", false, loader);
+            itemTemplate.getDeclaredField("type"); itemTemplate.getDeclaredField("level");
             Class<?> service = Class.forName("Service", false, loader);
             service.getDeclaredMethod("gI"); service.getDeclaredMethod("requestItem", int.class);
         }

@@ -33,6 +33,16 @@ class AccountTests
         bool invalidSnapshot = false;
         try { CharacterSnapshot.Parse("<Character state='READY' name='First' level='51' xu='bad' luong='78' boxKnown='false'/>"); } catch { invalidSnapshot = true; }
         Check(invalidSnapshot, "Malformed balance must not be silently converted to zero.");
+        string baseInfo = "<Character state='READY' name='First' level='51' xu='0' luong='0' boxKnown='true' boxXu='0'>";
+        var inventory = CharacterSnapshot.Parse(baseInfo + "<Equipment known='true'><Item name='Áo' upgrade='6'/><Item name='Giày' upgrade='7'/></Equipment><Inventory bagKnown='true' boxKnown='true'><Item id='123' name='Đá' quantity='25'/><Item id='456' name='Vật phẩm khác' quantity='0'/></Inventory></Character>");
+        Check(inventory.EquipmentDisplay == "2 món | Áo +6 | Giày +7", "Under-eight gear must show count, names and upgrades.");
+        Check(inventory.InventoryDisplay(new[] { 123, 456, 999 }) == "Đá: 25", "Tracking must show only requested, present items and hide absent IDs.");
+        var partial = CharacterSnapshot.Parse(baseInfo + "<Equipment known='false'/><Inventory bagKnown='true' boxKnown='false'><Item id='123' name='Đá' quantity='3'/></Inventory></Character>");
+        Check(partial.InventoryDisplay(new[] { 123 }).Contains("Đá: 3") && partial.InventoryDisplay(new[] { 123 }).Contains("Rương chưa tải"), "Partial inventory must not claim a complete count.");
+        Check(partial.EquipmentDisplay == "Chưa đọc được trang bị", "Unknown equipment must not appear as no low-upgrade gear.");
+        Check(AccountParser.ParseItemIds("123, 456,123").SequenceEqual(new[] { 123, 456 }), "Tracking IDs must normalize duplicates while retaining order.");
+        bool invalidId = false; try { AccountParser.ParseItemIds("1,-2"); } catch (InvalidDataException) { invalidId = true; }
+        Check(invalidId, "Negative template IDs must be rejected.");
         string dir = Path.Combine(Path.GetTempPath(), "qltk-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try {

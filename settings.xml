@@ -1,4 +1,5 @@
-﻿<Settings>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Settings>
   <EmulatorPath>C:\Users\Admin\Desktop\QLTK_NST\TOOL_QLTK\MICRO_NST.jar</EmulatorPath>
   <GamePath>C:\Users\Admin\Desktop\game\dapdonso\nso2-main\build\e90_auto_account_resume_watchdog.jar</GamePath>
   <TabWidth>220</TabWidth>
@@ -10,4 +11,7 @@
   <AutoNstTabs></AutoNstTabs>
   <AutoNstDelay>10</AutoNstDelay>
   <TabProxyMap></TabProxyMap>
+  <ShowUnder8>true</ShowUnder8>
+  <ShowTrackedItems>false</ShowTrackedItems>
+  <TrackedItemIds></TrackedItemIds>
 </Settings>

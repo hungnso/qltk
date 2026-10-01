@@ -16,8 +16,15 @@ public final class GameAccountObserver {
     private boolean selectionSent;
     private int chestRequests;
     private long lastChestRequest;
+    private String weaponState = "UNKNOWN";
+    private int weaponLevel, weaponUpgrade;
+    private final ItemStatistics statistics;
     public GameAccountObserver(File status, boolean autoSelect) {
+        this(status, autoSelect, System.getenv("QLTK_STATISTICS_FILE") == null ? null : new File(System.getenv("QLTK_STATISTICS_FILE")));
+    }
+    public GameAccountObserver(File status, boolean autoSelect, File config) {
         this.status = status; this.snapshot = new File(status.getParentFile(), "character.xml"); this.autoSelect = autoSelect;
+        statistics = new ItemStatistics(config);
     }
     public void start() {
         final AtomicBoolean pending = new AtomicBoolean();
@@ -82,9 +89,24 @@ public final class GameAccountObserver {
             lastChestRequest = System.currentTimeMillis(); chestRequests++;
         }
         boolean boxKnown = type.getField("arrItemBox").get(character) != null;
+        readWeapon(type, character);
+        statistics.read(loader, type, character);
         writeSnapshot("READY", name, type.getField("clevel").getInt(character), type.getField("xu").getInt(character),
             type.getField("luong").getInt(character), boxKnown, boxKnown ? type.getField("xuInBox").getInt(character) : 0);
         AccountBootstrap.writeStatus(status, "IN_GAME");
+    }
+    private void readWeapon(Class<?> type, Object character) throws Exception {
+        weaponState = "UNKNOWN";
+        Object[] equipment = (Object[])type.getField("arrItemBody").get(character);
+        if (equipment == null || equipment.length <= 1) return;
+        Object weapon = equipment[1];
+        if (weapon == null) { weaponState = "NONE"; return; }
+        Object template = weapon.getClass().getField("template").get(weapon);
+        if (template == null || template.getClass().getField("type").getByte(template) != 1) return;
+        weaponLevel = template.getClass().getField("level").getByte(template) & 0xff;
+        weaponUpgrade = weapon.getClass().getField("upgrade").getInt(weapon);
+        if (weaponUpgrade < 0) return;
+        weaponState = "EQUIPPED";
     }
     private void reportError() {
         try { AccountBootstrap.writeStatus(status, "ERROR_CHARACTER"); writeSnapshot("ERROR", null, 0, 0, 0, false, 0); } catch (Exception ignored) { }
@@ -99,6 +121,12 @@ public final class GameAccountObserver {
                 xml.writeAttribute("xu", String.valueOf(xu)); xml.writeAttribute("luong", String.valueOf(luong));
                 xml.writeAttribute("boxKnown", String.valueOf(boxKnown));
                 if (boxKnown) xml.writeAttribute("boxXu", String.valueOf(boxXu));
+                xml.writeAttribute("weaponState", weaponState);
+                if (weaponState.equals("EQUIPPED")) {
+                    xml.writeAttribute("weaponLevel", String.valueOf(weaponLevel));
+                    xml.writeAttribute("weaponUpgrade", String.valueOf(weaponUpgrade));
+                }
+                statistics.write(xml);
             }
             xml.writeEndElement(); xml.writeEndDocument(); xml.close();
         }

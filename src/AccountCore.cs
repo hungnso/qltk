@@ -20,6 +20,19 @@ namespace QltkAccounts
     }
     public static class AccountParser
     {
+        public static int[] ParseItemIds(string text)
+        {
+            var ids = new List<int>();
+            if (string.IsNullOrWhiteSpace(text)) return ids.ToArray();
+            foreach (string part in text.Split(',')) {
+                int id;
+                if (!int.TryParse(part.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out id) || id > 32767)
+                    throw new InvalidDataException("ID vật phẩm phải là số từ 0 đến 32767, ngăn cách bằng dấu phẩy.");
+                if (!ids.Contains(id)) ids.Add(id);
+                if (ids.Count > 128) throw new InvalidDataException("Chỉ theo dõi tối đa 128 ID vật phẩm.");
+            }
+            return ids.ToArray();
+        }
         public static ParseResult Parse(IEnumerable<string> lines, string[] servers)
         {
             var result = new ParseResult(); var seen = new HashSet<string>(); int line = 0;
@@ -97,6 +110,36 @@ namespace QltkAccounts
         public string EmulatorPath, GamePath, JavaPath;
         public int MaxTab, Width, Height;
         public bool AutoLogin;
+        public bool ShowUnder8, ShowTrackedItems;
+        public int[] TrackedItemIds = new int[0];
+        public static void SaveLaunch(string root, string emulator, string game, int width, int height, bool autoLogin, bool? showUnder8 = null, bool? showTrackedItems = null, string trackedItemIds = null)
+        {
+            int[] ids = trackedItemIds == null ? null : AccountParser.ParseItemIds(trackedItemIds);
+            if (width < 100 || width > 2000 || height < 100 || height > 2000)
+                throw new InvalidDataException("Kích thước tab phải nằm trong 100–2000.");
+            Func<string, string> resolve = p => {
+                if (string.IsNullOrWhiteSpace(p)) throw new InvalidDataException("Chọn file Emulator và Game trước khi lưu.");
+                string path = Path.GetFullPath(Path.IsPathRooted(p.Trim()) ? p.Trim() : Path.Combine(root, p.Trim()));
+                if (!string.Equals(Path.GetExtension(path), ".jar", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+                    throw new InvalidDataException("Không tìm thấy file JAR: " + path);
+                return path;
+            };
+            string emulatorPath = resolve(emulator), gamePath = resolve(game);
+            string target = Path.Combine(root, "settings.xml");
+            var document = XDocument.Load(target);
+            if (document.Root == null || document.Root.Name != "Settings") throw new InvalidDataException("settings.xml không có mục Settings.");
+            document.Root.SetElementValue("EmulatorPath", emulatorPath);
+            document.Root.SetElementValue("GamePath", gamePath);
+            document.Root.SetElementValue("TabWidth", width);
+            document.Root.SetElementValue("TabHeight", height);
+            document.Root.SetElementValue("AutoLogin", autoLogin);
+            if (showUnder8.HasValue) document.Root.SetElementValue("ShowUnder8", showUnder8.Value);
+            if (showTrackedItems.HasValue) document.Root.SetElementValue("ShowTrackedItems", showTrackedItems.Value);
+            if (ids != null) document.Root.SetElementValue("TrackedItemIds", string.Join(",", ids));
+            string temp = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try { document.Save(temp); File.Replace(temp, target, null); }
+            finally { if (File.Exists(temp)) File.Delete(temp); }
+        }
         public static AppSettings Load(string root)
         {
             var xml = XDocument.Load(Path.Combine(root, "settings.xml")).Root;
@@ -107,7 +150,9 @@ namespace QltkAccounts
             };
             Func<string, string> resolve = p => Path.GetFullPath(Path.IsPathRooted(p) ? p : Path.Combine(root, p));
             bool auto; if (!bool.TryParse(value("AutoLogin", "true"), out auto)) throw new InvalidDataException("AutoLogin phải là true hoặc false.");
-            return new AppSettings { EmulatorPath = resolve(value("EmulatorPath", "MICRO_NST.jar")), GamePath = resolve(value("GamePath", "game.jar")), JavaPath = Path.Combine(root, "jre", "bin", "javaw.exe"), MaxTab = number("MaxTab", 5, 1, 200), Width = number("TabWidth", 220, 100, 2000), Height = number("TabHeight", 240, 100, 2000), AutoLogin = auto };
+            bool under8, tracked;
+            if (!bool.TryParse(value("ShowUnder8", "false"), out under8) || !bool.TryParse(value("ShowTrackedItems", "false"), out tracked)) throw new InvalidDataException("Công tắc thống kê phải là true hoặc false.");
+            return new AppSettings { EmulatorPath = resolve(value("EmulatorPath", "MICRO_NST.jar")), GamePath = resolve(value("GamePath", "game.jar")), JavaPath = Path.Combine(root, "jre", "bin", "javaw.exe"), MaxTab = number("MaxTab", 5, 1, 200), Width = number("TabWidth", 220, 100, 2000), Height = number("TabHeight", 240, 100, 2000), AutoLogin = auto, ShowUnder8 = under8, ShowTrackedItems = tracked, TrackedItemIds = AccountParser.ParseItemIds(value("TrackedItemIds", "")) };
         }
     }
     public static class LaunchArguments
