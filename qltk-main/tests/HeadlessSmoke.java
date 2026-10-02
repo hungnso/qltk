@@ -1,0 +1,115 @@
+import java.io.*;
+import java.nio.file.*;
+import org.microemu.app.Headless;
+import org.microemu.MIDletBridge;
+import javax.microedition.midlet.MIDlet;
+import javax.microedition.lcdui.Display;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Element;
+public final class HeadlessSmoke {
+    public static void main(String[] args) throws Exception {
+        File game = new File(args[0]), home = new File(args[1]);
+        home.mkdirs(); File status = new File(home, "bridge.status");
+        AccountBootstrap.verifyContract(game);
+        AccountBootstrap.prepare(home, game, "fixture-user", " fixture-pass ", 2);
+        System.setProperty("user.home", home.getAbsolutePath());
+        System.setProperty("java.awt.headless", "true");
+        Headless.main(new String[] { "--rms", "file", "--openjar", game.getAbsolutePath() });
+        AccountBootstrap.loginWhenReady("fixture-user", " fixture-pass ", 2, status);
+        String value = new String(Files.readAllBytes(status.toPath()), "UTF-8");
+        if (!value.equals("LOGIN_SUBMITTED")) { System.err.println("FAIL: headless emulator integration: " + value); System.exit(1); }
+        System.out.println("PASS: real emulator starts fixture and submits correct account/password/server on its event thread (offline).");
+        MIDlet midlet = MIDletBridge.getCurrentMIDlet();
+        final ClassLoader loader = midlet.getClass().getClassLoader();
+        File statistics = new File(home, "statistics-settings.xml");
+        Files.write(statistics.toPath(), "<Settings><ShowUnder8>true</ShowUnder8><ShowTrackedItems>true</ShowTrackedItems><TrackedItemIds>123,456,999</TrackedItemIds></Settings>".getBytes("UTF-8"));
+        final GameAccountObserver observer = new GameAccountObserver(status, true, statistics);
+        tick(midlet, observer, loader);
+        Class<?> selector = Class.forName("SelectCharScr", false, loader);
+        if (selector.getField("selections").getInt(null) != 1) throw new AssertionError("First slot not automatically chosen.");
+        tick(midlet, observer, loader);
+        File info = new File(home, "character.xml");
+        Element snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (!snapshot.getAttribute("name").equals("first-character") || !snapshot.getAttribute("xu").equals("3456") || !snapshot.getAttribute("luong").equals("78")) throw new AssertionError("Wrong character currency snapshot.");
+        if (!snapshot.getAttribute("weaponState").equals("EQUIPPED") || !snapshot.getAttribute("weaponLevel").equals("50") || !snapshot.getAttribute("weaponUpgrade").equals("12")) throw new AssertionError("Equipped weapon info is missing.");
+        if (!snapshot.getAttribute("boxKnown").equals("false") || snapshot.hasAttribute("boxXu")) throw new AssertionError("Unloaded chest must not be shown as zero.");
+        Element inventory = (Element)snapshot.getElementsByTagName("Inventory").item(0);
+        if (!inventory.getAttribute("boxKnown").equals("false") || !((Element)inventory.getElementsByTagName("Item").item(0)).getAttribute("quantity").equals("2")) throw new AssertionError("Bag stacks must sum with chest marked unknown.");
+        if (!((Element)inventory.getElementsByTagName("Item").item(1)).getAttribute("name").equals("Absent item") || !((Element)inventory.getElementsByTagName("Item").item(2)).getAttribute("name").equals("ID 999")) throw new AssertionError("Names must map from templates, with unknown-ID fallback.");
+        Class<?> characterType = Class.forName("Char", false, loader);
+        Object character = characterType.getMethod("getMyChar").invoke(null);
+        characterType.getField("arrItemBox").set(character, new Object[0]);
+        characterType.getField("xuInBox").setInt(character, 99);
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (!snapshot.getAttribute("boxKnown").equals("true") || !snapshot.getAttribute("boxXu").equals("99")) throw new AssertionError("Server chest response not reflected.");
+        characterType.getField("xu").setInt(character, 0);
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (!snapshot.getAttribute("xu").equals("0")) throw new AssertionError("Loaded zero balance must stay valid.");
+        Object[] equipment = (Object[])characterType.getField("arrItemBody").get(character);
+        Object weapon = equipment[1], template = weapon.getClass().getField("template").get(weapon);
+        weapon.getClass().getField("quantity").setInt(weapon, 3);
+        characterType.getField("arrItemBox").set(character, new Object[] { weapon });
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        inventory = (Element)snapshot.getElementsByTagName("Inventory").item(0);
+        if (!((Element)inventory.getElementsByTagName("Item").item(0)).getAttribute("quantity").equals("5")) throw new AssertionError("Bag and chest quantities must be added once, excluding equipped items.");
+        template.getClass().getField("isUpToUp").setBoolean(template, false);
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        inventory = (Element)snapshot.getElementsByTagName("Inventory").item(0);
+        if (!((Element)inventory.getElementsByTagName("Item").item(0)).getAttribute("quantity").equals("3")) throw new AssertionError("Non-stackable chest item counts as one, not its raw quantity.");
+        template.getClass().getField("isUpToUp").setBoolean(template, true);
+        weapon.getClass().getField("upgrade").setInt(weapon, 7);
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (!((Element)snapshot.getElementsByTagName("Equipment").item(0)).getElementsByTagName("Item").item(0).getAttributes().getNamedItem("upgrade").getNodeValue().equals("7")) throw new AssertionError("Equipped +7 must appear below +8.");
+        template.getClass().getField("type").setByte(template, (byte)10);
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (((Element)snapshot.getElementsByTagName("Equipment").item(0)).getElementsByTagName("Item").getLength() != 0) throw new AssertionError("Non-upgradable body accessory must be excluded.");
+        template.getClass().getField("type").setByte(template, (byte)1);
+        weapon.getClass().getField("upgrade").setInt(weapon, 8);
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (((Element)snapshot.getElementsByTagName("Equipment").item(0)).getElementsByTagName("Item").getLength() != 0) throw new AssertionError("Equipped +8 must be excluded.");
+        weapon.getClass().getField("upgrade").setInt(weapon, 12);
+        template.getClass().getField("level").setByte(template, (byte)130);
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (!snapshot.getAttribute("weaponLevel").equals("130")) throw new AssertionError("Weapon level byte must be read unsigned.");
+        equipment[1] = null;
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (!snapshot.getAttribute("weaponState").equals("NONE") || snapshot.hasAttribute("weaponLevel")) throw new AssertionError("Empty weapon slot must not show old equipment.");
+        characterType.getField("arrItemBody").set(character, null);
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (!snapshot.getAttribute("weaponState").equals("UNKNOWN")) throw new AssertionError("Unloaded equipment must remain unknown.");
+        if (Class.forName("Service", false, loader).getField("requests").getInt(null) != 1) throw new AssertionError("Must not flood server with chest requests.");
+        Files.write(statistics.toPath(), "<Settings><ShowUnder8>false</ShowUnder8><ShowTrackedItems>false</ShowTrackedItems></Settings>".getBytes("UTF-8"));
+        tick(midlet, observer, loader);
+        snapshot = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(info).getDocumentElement();
+        if (snapshot.getElementsByTagName("Inventory").getLength() != 0 || snapshot.getElementsByTagName("Equipment").getLength() != 0) throw new AssertionError("Statistics settings must refresh without restarting game.");
+        System.out.println("PASS: item template names, bag/chest totals, under-eight equipment and live statistics switches (offline).");
+        Object emptySelector = selector.newInstance();
+        selector.getField("name").set(emptySelector, new String[] { null, "second-character", null });
+        Class.forName("GameCanvas", false, loader).getField("currentScreen").set(null, emptySelector);
+        tick(midlet, observer, loader);
+        if (selector.getField("selections").getInt(null) != 1) throw new AssertionError("Empty first slot must not select or create another character.");
+        if (!new String(Files.readAllBytes(status.toPath()), "UTF-8").equals("CHARACTER_SLOT_EMPTY")) throw new AssertionError("Empty first slot must be reported.");
+        System.out.println("PASS: slot one selected once, character and balances read, delayed chest stays unknown, response updates, empty slot does not create a character.");
+        System.exit(0);
+    }
+    static void tick(MIDlet midlet, final GameAccountObserver observer, final ClassLoader loader) throws Exception {
+        final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicReference<Throwable> error = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        Display.getDisplay(midlet).callSerially(new Runnable() { public void run() {
+            try { MIDletBridge.setThreadMIDletContext(MIDletBridge.getMIDletContext(MIDletBridge.getCurrentMIDlet())); observer.tick(loader); }
+            catch (Throwable e) { error.set(e); } finally { done.countDown(); }
+        } });
+        if (!done.await(5, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("Game event thread did not run.");
+        if (error.get() != null) throw new AssertionError(error.get());
+    }
+}

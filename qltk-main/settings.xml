@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Settings>
+  <EmulatorPath>C:\Users\Admin\Desktop\qltk-main\qltk-main\MICRO_NST.jar</EmulatorPath>
+  <GamePath>D:\game\nso2-main-v37-auto-main\nso2-main\build\e72_v37_auto_main_tathu_fastwarp_fix_item_id_20261001.jar</GamePath>
+  <TabWidth>220</TabWidth>
+  <TabHeight>240</TabHeight>
+  <MaxTab>5</MaxTab>
+  <MultiData>true</MultiData>
+  <AutoLogin>true</AutoLogin>
+  <AutoNst>false</AutoNst>
+  <AutoNstTabs></AutoNstTabs>
+  <AutoNstDelay>10</AutoNstDelay>
+  <TabProxyMap></TabProxyMap>
+  <ShowUnder8>true</ShowUnder8>
+  <ShowTrackedItems>true</ShowTrackedItems>
+  <TrackedItemIds>454</TrackedItemIds>
+</Settings>
