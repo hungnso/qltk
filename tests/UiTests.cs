@@ -43,6 +43,9 @@ class UiTests {
             var height = (NumericUpDown)config.Controls.Find("tabHeight", true).Single();
             var auto = (CheckBox)config.Controls.Find("autoLogin", true).Single();
             var save = (Button)config.Controls.Find("saveConfig", true).Single();
+            var maxTab = config.Controls.Find("maxTab", true).SingleOrDefault() as NumericUpDown;
+            if (maxTab == null) throw new Exception("MaxTab editing control is missing.");
+            if (maxTab.Value != 1) throw new Exception("MaxTab must load the saved capacity.");
             var under8 = config.Controls.Find("showUnder8", true).SingleOrDefault() as CheckBox;
             var tracked = config.Controls.Find("showTrackedItems", true).SingleOrDefault() as CheckBox;
             var ids = config.Controls.Find("trackedItemIds", true).SingleOrDefault() as TextBox;
@@ -90,10 +93,17 @@ class UiTests {
             if (manager.RunningCount != 1) throw new Exception("Second button press must not duplicate a tab.");
             Click(buttons.Single(b => b.Text == "Mở tất cả"));
             if (manager.RunningCount != 1) throw new Exception("Open all must respect MaxTab=1.");
-            capacity(2);
+            maxTab.Value = 2; Click(save);
+            if (AppSettings.Load(fixture).MaxTab != 2 || !manager.Controls.OfType<Label>().Single().Text.Contains("MaxTab: 2")) throw new Exception("Saving MaxTab must update settings and summary immediately.");
             Click(buttons.Single(b => b.Text == "Mở tất cả"));
             if (manager.RunningCount != 2) throw new Exception("Open all should launch remaining account after capacity increases.");
             WaitMarkers(fixture, 2);
+            var originalTabs = table.Rows.Cast<DataGridViewRow>().Select(r => r.Cells["tab"].Value.ToString()).ToArray();
+            maxTab.Value = 1; Click(save);
+            if (manager.RunningCount != 2 || !table.Rows.Cast<DataGridViewRow>().Select(r => r.Cells["tab"].Value.ToString()).SequenceEqual(originalTabs)) throw new Exception("Reducing MaxTab must preserve running tabs and their IDs.");
+            Click(buttons.Single(b => b.Text == "Mở tất cả"));
+            if (manager.RunningCount != 2) throw new Exception("Reducing MaxTab must not close or duplicate running tabs.");
+            Console.WriteLine("PASS: MaxTab can be edited and saved in UI; summary updates immediately and existing tabs survive a reduced limit.");
             Console.WriteLine("PASS: selected/all buttons launch processes with correct credentials, prevent duplicates, and honor MaxTab.");
         } finally {
             if (manager != null) {

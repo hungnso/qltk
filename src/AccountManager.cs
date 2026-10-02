@@ -29,6 +29,7 @@ namespace QltkAccounts
         readonly TextBox emulatorPath = new TextBox { Name = "emulatorPath" }, gamePath = new TextBox { Name = "gamePath" };
         readonly NumericUpDown tabWidth = new NumericUpDown { Name = "tabWidth", Minimum = 100, Maximum = 2000, Value = 220, Width = 70 };
         readonly NumericUpDown tabHeight = new NumericUpDown { Name = "tabHeight", Minimum = 100, Maximum = 2000, Value = 240, Width = 70 };
+        readonly NumericUpDown maxTab = new NumericUpDown { Name = "maxTab", Minimum = 1, Maximum = 200, Value = 5, Width = 70 };
         readonly CheckBox autoLogin = new CheckBox { Name = "autoLogin", Text = "Auto login", AutoSize = true, Checked = true };
         readonly CheckBox showUnder8 = new CheckBox { Name = "showUnder8", Text = "Hiện đồ dưới +8", AutoSize = true };
         readonly CheckBox showTrackedItems = new CheckBox { Name = "showTrackedItems", Text = "Hiện vật phẩm theo ID", AutoSize = true };
@@ -101,7 +102,9 @@ namespace QltkAccounts
             launchConfig.Controls.Add(new Label { Text = "Kích thước tab:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
             var sizes = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0) };
             sizes.Controls.Add(tabWidth); sizes.Controls.Add(new Label { Text = "×", AutoSize = true, Margin = new Padding(4, 5, 4, 0) });
-            sizes.Controls.Add(tabHeight); autoLogin.Margin = new Padding(20, 5, 0, 0); sizes.Controls.Add(autoLogin);
+            sizes.Controls.Add(tabHeight);
+            sizes.Controls.Add(new Label { Text = "MaxTab:", AutoSize = true, Margin = new Padding(16, 5, 3, 0) }); sizes.Controls.Add(maxTab);
+            autoLogin.Margin = new Padding(20, 5, 0, 0); sizes.Controls.Add(autoLogin);
             sizes.Controls.Add(new Label { Text = "Áp dụng khi mở tab mới", AutoSize = true, Margin = new Padding(20, 5, 0, 0) });
             launchConfig.Controls.Add(sizes, 1, 2);
             var save = new Button { Name = "saveConfig", Text = "Lưu cấu hình", Dock = DockStyle.Fill, AutoSize = true };
@@ -136,6 +139,7 @@ namespace QltkAccounts
         {
             emulatorPath.Text = settings.EmulatorPath; gamePath.Text = settings.GamePath;
             tabWidth.Value = settings.Width; tabHeight.Value = settings.Height; autoLogin.Checked = settings.AutoLogin;
+            maxTab.Value = settings.MaxTab;
             showUnder8.Checked = settings.ShowUnder8; showTrackedItems.Checked = settings.ShowTrackedItems;
             trackedItemIds.Text = string.Join(",", settings.TrackedItemIds); ApplyStatisticsVisibility();
         }
@@ -143,8 +147,8 @@ namespace QltkAccounts
         {
             if (pending.Count > 0) return false;
             try {
-                AppSettings.SaveLaunch(root, emulatorPath.Text, gamePath.Text, (int)tabWidth.Value, (int)tabHeight.Value, autoLogin.Checked, showUnder8.Checked, showTrackedItems.Checked, trackedItemIds.Text);
-                settings = AppSettings.Load(root); ShowConfiguration();
+                AppSettings.SaveLaunch(root, emulatorPath.Text, gamePath.Text, (int)tabWidth.Value, (int)tabHeight.Value, autoLogin.Checked, showUnder8.Checked, showTrackedItems.Checked, trackedItemIds.Text, (int)maxTab.Value);
+                settings = AppSettings.Load(root); ShowConfiguration(); RefreshStatuses();
                 if (showMessage) errors.Text = "Đã lưu cấu hình. Phiên bản và kích thước áp dụng cho tab mở mới; đóng rồi mở lại tab cũ để áp dụng.";
                 return true;
             } catch (Exception ex) { errors.Text = "Không lưu được cấu hình: " + ex.Message; return false; }

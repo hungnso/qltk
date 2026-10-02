@@ -112,8 +112,9 @@ namespace QltkAccounts
         public bool AutoLogin;
         public bool ShowUnder8, ShowTrackedItems;
         public int[] TrackedItemIds = new int[0];
-        public static void SaveLaunch(string root, string emulator, string game, int width, int height, bool autoLogin, bool? showUnder8 = null, bool? showTrackedItems = null, string trackedItemIds = null)
+        public static void SaveLaunch(string root, string emulator, string game, int width, int height, bool autoLogin, bool? showUnder8 = null, bool? showTrackedItems = null, string trackedItemIds = null, int? maxTab = null)
         {
+            if (maxTab.HasValue && (maxTab.Value < 1 || maxTab.Value > 200)) throw new InvalidDataException("MaxTab phải nằm trong 1–200.");
             int[] ids = trackedItemIds == null ? null : AccountParser.ParseItemIds(trackedItemIds);
             if (width < 100 || width > 2000 || height < 100 || height > 2000)
                 throw new InvalidDataException("Kích thước tab phải nằm trong 100–2000.");
@@ -133,6 +134,7 @@ namespace QltkAccounts
             document.Root.SetElementValue("TabWidth", width);
             document.Root.SetElementValue("TabHeight", height);
             document.Root.SetElementValue("AutoLogin", autoLogin);
+            if (maxTab.HasValue) document.Root.SetElementValue("MaxTab", maxTab.Value);
             if (showUnder8.HasValue) document.Root.SetElementValue("ShowUnder8", showUnder8.Value);
             if (showTrackedItems.HasValue) document.Root.SetElementValue("ShowTrackedItems", showTrackedItems.Value);
             if (ids != null) document.Root.SetElementValue("TrackedItemIds", string.Join(",", ids));

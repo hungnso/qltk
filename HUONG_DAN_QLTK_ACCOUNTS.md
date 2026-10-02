@@ -8,6 +8,7 @@ Phía trên danh sách account có phần cấu hình giống tool cũ:
 
 - **Emulator / Game**: bấm **Duyệt** chọn file `.jar` hoặc nhập đường dẫn. **Game** là phiên bản game sẽ mở cho các tài khoản.
 - **Kích thước tab**: nhập chiều rộng × chiều cao màn hình game, mỗi chiều từ 100 đến 2000; mặc định 220 × 240.
+- **MaxTab**: số tab game tối đa được mở đồng thời, từ 1 đến 200. Bấm **Lưu cấu hình** để lưu và cập nhật giới hạn ở dòng thông tin bên dưới; bấm mở tài khoản cũng lưu giá trị đang chọn. Tăng giới hạn rồi bấm mở để mở thêm account. Giảm giới hạn không tự đóng các tab đang chạy; tool chỉ ngăn mở thêm khi đã đạt hoặc vượt giới hạn.
 - **Auto login**: bật để tự đăng nhập và chọn nhân vật đầu tiên; tắt để đăng nhập thủ công.
 - Bấm **Lưu cấu hình** để lưu vào `settings.xml`. Khi bấm mở tài khoản, tool cũng kiểm tra và lưu các lựa chọn hiện tại. File JAR không tồn tại thì tool báo lỗi và không ghi đè cấu hình.
 - Các lựa chọn áp dụng cho **tab mở mới**. Muốn đổi phiên bản hoặc kích thước của tab đang chạy, đóng tab đó rồi mở lại. Các mục khác trong cấu hình như `MaxTab`, proxy và AutoNst được giữ lại.
@@ -53,6 +54,7 @@ Các phiên bản game khác cần có cấu trúc tương thích với cầu n�
 - `MaxTab` là số tab đồng thời. Account vượt giới hạn chưa được mở; đóng bớt tab rồi bấm mở lại. Số tab được tính cả trong lúc game đang tải.
 - `AutoLogin=true`: cầu nối gửi tài khoản/mật khẩu và chọn đúng server khi game sẵn sàng. `AutoLogin=false`: mở game với thông tin account đã lưu để đăng nhập thủ công.
 - Dữ liệu bản mới nằm trong `data/accounts/tab_N`, liên kết account–tab nằm trong `data/accounts/tabs.xml`. Sửa thứ tự danh sách hoặc mật khẩu không đổi liên kết. Đổi username hoặc server tạo liên kết mới.
+- Cột **Tab** là số định danh lưu theo account + server, không phải số tab đang chạy hoặc thứ tự hàng. Vì vậy một account vẫn có thể hiển thị **Tab 2** nếu nó đã được liên kết với thư mục `tab_2` trước đó; số 1 có thể thuộc liên kết cũ. Tool giữ số này để dùng lại đúng dữ liệu. Số cửa sổ đang chạy được hiển thị riêng ở dòng thông tin dưới cùng.
 - Dữ liệu cũ trong `data/tab_N` không bị sửa hoặc chuyển. Bản mới dùng dữ liệu riêng nên các thiết lập trong game cần cấu hình lại ở lần mở đầu tiên.
 - Một tab được cố định cho một account; cầu nối tắt chế độ xoay account của game trong dữ liệu tab đó.
 - Trạng thái **Đã gửi đăng nhập** xác nhận đã gọi hàm đăng nhập, chưa xác nhận server chấp nhận mật khẩu hoặc nhân vật đã vào game. Kiểm tra kết quả trong cửa sổ game.
