@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<AccountHistory key="a39d796e7284d528a3d53ed518341a29a86df1455378d02f84e5c68ce1cb173f" updatedUtc="2026-10-02T05:43:59.6014316Z" loginUtc="2026-10-02T05:43:59.5560000Z">
+  <Character state="READY" loginUtc="2026-10-02T05:43:59.556Z" name="tuntun_zz" level="66" xu="1355000" luong="4905" boxKnown="true" boxXu="0" weaponState="EQUIPPED" weaponLevel="60" weaponUpgrade="12">
+    <Equipment known="true">
+      <Item name="Nhẫn Kim cương" upgrade="0" />
+      <Item name="Kim Giáp" upgrade="0" />
+      <Item name="Huyền Kỹ Bội" upgrade="0" />
+      <Item name="Kim Giáp Ngoa" upgrade="7" />
+    </Equipment>
+    <Inventory bagKnown="true" boxKnown="true">
+      <Item id="454" name="Chuyển tinh thạch" quantity="1" />
+    </Inventory>
+  </Character>
+</AccountHistory>

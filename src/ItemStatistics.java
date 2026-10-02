@@ -10,6 +10,12 @@ public final class ItemStatistics {
     private boolean showEquipment, showItems, equipmentKnown, bagKnown, boxKnown;
     private final List<Entry> equipment = new ArrayList<Entry>();
     private final LinkedHashMap<Integer, Entry> items = new LinkedHashMap<Integer, Entry>();
+    private Element cachedConfig;
+    private long configTime, configLength, lastConfigRead;
+    private ClassLoader nameLoader;
+    private final Map<Integer, String> names = new HashMap<Integer, String>();
+    private volatile boolean light = Boolean.parseBoolean(System.getenv("QLTK_VPS_LIGHT"));
+    public boolean isLight() { return light; }
     private static final class Entry {
         int id, upgrade; String name; long quantity;
         Entry(int id, String name) { this.id = id; this.name = name; }
@@ -25,12 +31,19 @@ public final class ItemStatistics {
         if (config == null || !config.isFile()) return;
         try {
             if (config.length() > 262144) return;
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setXIncludeAware(false); factory.setExpandEntityReferences(false);
-            Element root = factory.newDocumentBuilder().parse(config).getDocumentElement();
+            if (cachedConfig == null || configTime != config.lastModified() || configLength != config.length() || System.currentTimeMillis() - lastConfigRead >= 10000) {
+                DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                factory.setXIncludeAware(false); factory.setExpandEntityReferences(false);
+                long stamp = config.lastModified(), length = config.length();
+                cachedConfig = factory.newDocumentBuilder().parse(config).getDocumentElement();
+                configTime = stamp; configLength = length; lastConfigRead = System.currentTimeMillis();
+            }
+            Element root = cachedConfig;
+            String mode = text(root, "VpsLight"); if (!mode.isEmpty()) light = Boolean.parseBoolean(mode);
+            if (nameLoader != loader) { names.clear(); nameLoader = loader; }
             showEquipment = text(root, "ShowUnder8").equalsIgnoreCase("true");
             showItems = text(root, "ShowTrackedItems").equalsIgnoreCase("true");
             if (showEquipment) {
@@ -58,9 +71,10 @@ public final class ItemStatistics {
                     items.put(id, new Entry(id, "ID " + id));
                 }
                 for (Entry entry : items.values()) {
+                    if (names.containsKey(entry.id)) { entry.name = names.get(entry.id); continue; }
                     try {
                         Object template = Class.forName("ItemTemplates", true, loader).getMethod("get", short.class).invoke(null, (short)entry.id);
-                        if (template != null) entry.name = entry(template).name;
+                        if (template != null) { entry.name = entry(template).name; names.put(entry.id, entry.name); }
                     } catch (Exception ignored) { }
                 }
                 Object[] bag = (Object[])type.getField("arrItemBag").get(character);
@@ -87,6 +101,7 @@ public final class ItemStatistics {
                 if (quantity < 0) { known = false; continue; }
                 target.quantity += stackable ? Math.max(1, quantity) : 1;
                 target.name = source.name;
+                names.put(source.id, source.name);
             }
         }
         return known;

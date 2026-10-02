@@ -47,6 +47,18 @@ class AccountTests
         Directory.CreateDirectory(dir);
         try {
             var registry = new TabRegistry(Path.Combine(dir, "tabs.xml"));
+            var history = new AccountHistoryStore(dir);
+            string historyXml = baseInfo + "<Equipment known='true'><Item name='Áo' upgrade='6'/></Equipment><Inventory bagKnown='true' boxKnown='true'><Item id='123' name='Đá' quantity='9'/></Inventory></Character>";
+            DateTime loginTime = new DateTime(2026, 10, 2, 0, 0, 0, DateTimeKind.Utc);
+            var record = history.Save(parsed.Accounts[0].Key, historyXml, loginTime, loginTime.AddMinutes(1), null);
+            var loadedHistory = history.Load(parsed.Accounts[0].Key);
+            Check(loadedHistory.LoginUtc == loginTime && loadedHistory.Character.EquipmentDisplay.Contains("Áo +6"), "History must restore login time and equipment.");
+            Check(history.Load(parsed.Accounts[1].Key) == null, "Different account/server must not inherit another account history.");
+            Check(object.ReferenceEquals(history.Save(parsed.Accounts[0].Key, "<Character state='ERROR'/>", loginTime.AddHours(1), loginTime.AddHours(1), record), record), "Login errors must preserve the last successful record.");
+            Check(object.ReferenceEquals(history.Save(parsed.Accounts[0].Key, historyXml, loginTime, loginTime.AddMinutes(2), record), record), "Unchanged data must not rewrite history on heartbeat.");
+            var newer = history.Save(parsed.Accounts[0].Key, baseInfo + "</Character>", loginTime.AddHours(1), loginTime.AddHours(1), record);
+            Check(newer.LoginUtc == loginTime.AddHours(1) && newer.Character.EquipmentDisplay.Contains("Áo +6") && newer.InventoryDisplay(new[] { 123 }).Contains("Đá: 9"), "New login must refresh time while preserving disabled statistics sections.");
+            Check(newer.InventoryDisplay(new[] { 456 }).Contains("Chưa lưu dữ liệu ID: 456"), "Unrecorded IDs must be distinguished from confirmed absent items.");
             int first = registry.GetOrAdd(parsed.Accounts[0].Key);
             int second = registry.GetOrAdd(parsed.Accounts[1].Key);
             Check(first != second, "Accounts must have separate data folders.");
@@ -66,6 +78,12 @@ class AccountTests
             var settings = AppSettings.Load(dir);
             Check(settings.GamePath == Path.Combine(dir, "game.jar"), "Relative paths must resolve against application folder.");
             Check(settings.MaxTab == 5 && settings.AutoLogin, "Existing settings must be honored.");
+            Check(settings.VpsLight && settings.JavaHeapMb == 128, "Unconfigured performance settings must default to lightweight mode and 128 MB heap.");
+            File.WriteAllText(Path.Combine(dir, "settings.xml"), "<Settings><VpsLight>false</VpsLight></Settings>");
+            Check(AppSettings.Load(dir).JavaHeapMb == 256, "Normal mode must retain the legacy default heap when unspecified.");
+            File.WriteAllText(Path.Combine(dir, "settings.xml"), "<Settings><JavaHeapMb>32</JavaHeapMb></Settings>");
+            bool heapRejected = false; try { AppSettings.Load(dir); } catch (InvalidDataException) { heapRejected = true; }
+            Check(heapRejected, "Unsafe heap configuration must not launch Java.");
             File.WriteAllText(Path.Combine(dir, "settings.xml"), "<Settings><MaxTab>0</MaxTab></Settings>");
             bool rejected = false; try { AppSettings.Load(dir); } catch { rejected = true; }
             Check(rejected, "Invalid capacity must be rejected rather than launching without a limit.");

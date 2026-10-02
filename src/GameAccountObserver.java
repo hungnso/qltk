@@ -19,12 +19,20 @@ public final class GameAccountObserver {
     private String weaponState = "UNKNOWN";
     private int weaponLevel, weaponUpgrade;
     private final ItemStatistics statistics;
+    private final GameAutoController autoController;
+    private volatile boolean inGame;
+    private byte[] lastSnapshot;
+    private long lastSnapshotWrite;
+    private String loginUtc;
+    private final XMLOutputFactory xmlFactory = XMLOutputFactory.newFactory();
     public GameAccountObserver(File status, boolean autoSelect) {
         this(status, autoSelect, System.getenv("QLTK_STATISTICS_FILE") == null ? null : new File(System.getenv("QLTK_STATISTICS_FILE")));
     }
     public GameAccountObserver(File status, boolean autoSelect, File config) {
         this.status = status; this.snapshot = new File(status.getParentFile(), "character.xml"); this.autoSelect = autoSelect;
         statistics = new ItemStatistics(config);
+        String autoSession = System.getenv("QLTK_AUTO_SESSION");
+        autoController = autoSession == null || autoSession.isEmpty() ? null : new GameAutoController(status.getParentFile(), autoSession);
     }
     public void start() {
         final AtomicBoolean pending = new AtomicBoolean();
@@ -46,7 +54,7 @@ public final class GameAccountObserver {
                                 });
                             } catch (Throwable e) { pending.set(false); reportError(); }
                         }
-                        Thread.sleep(2000);
+                        Thread.sleep(inGame && statistics.isLight() ? 5000 : 2000);
                     } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
                     catch (Throwable e) { reportError(); try { Thread.sleep(2000); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); } }
                 }
@@ -55,13 +63,16 @@ public final class GameAccountObserver {
         worker.setDaemon(true); worker.start();
     }
     public void tick(ClassLoader loader) throws Exception {
+        inGame = false;
+        boolean autoReady = false;
+        try {
         Class<?> canvas = Class.forName("GameCanvas", false, loader);
         Object screen = canvas.getField("currentScreen").get(null);
         if (screen == null) { writeSnapshot("WAITING", null, 0, 0, 0, false, 0); return; }
         boolean loading = canvas.getField("isLoading").getBoolean(null);
         String screenType = screen.getClass().getSimpleName();
         if (screenType.equals("SelectCharScr")) {
-            if (screen != lastSelector) { lastSelector = screen; selectionSent = false; }
+            if (screen != lastSelector) { lastSelector = screen; selectionSent = false; loginUtc = null; }
             String[] names = (String[]) screen.getClass().getField("name").get(screen);
             if (loading || names == null || names.length == 0) { writeSnapshot("WAITING", null, 0, 0, 0, false, 0); return; }
             if (autoSelect && (names[0] == null || names[0].trim().isEmpty())) {
@@ -76,12 +87,14 @@ public final class GameAccountObserver {
             writeSnapshot("WAITING", null, 0, 0, 0, false, 0); return;
         }
         lastSelector = null;
+        if (screenType.equals("LoginScr") || screenType.equals("SelectServerScr")) loginUtc = null;
         if (!screenType.equals("GameScr") || loading) { writeSnapshot("WAITING", null, 0, 0, 0, false, 0); return; }
         Class<?> type = Class.forName("Char", true, loader);
         Object character = type.getMethod("getMyChar").invoke(null);
         String name = character == null ? null : (String) type.getField("cName").get(character);
         if (name == null || name.isEmpty()) { writeSnapshot("WAITING", null, 0, 0, 0, false, 0); return; }
-        if (character != lastCharacter) { lastCharacter = character; chestRequests = 0; lastChestRequest = 0; }
+        if (character != lastCharacter) { lastCharacter = character; chestRequests = 0; lastChestRequest = 0; loginUtc = null; }
+        if (loginUtc == null) loginUtc = java.time.Instant.now().toString();
         if (type.getField("arrItemBox").get(character) == null && chestRequests < 3 && System.currentTimeMillis() - lastChestRequest >= 30000) {
             Class<?> service = Class.forName("Service", true, loader);
             Object instance = service.getMethod("gI").invoke(null);
@@ -91,9 +104,15 @@ public final class GameAccountObserver {
         boolean boxKnown = type.getField("arrItemBox").get(character) != null;
         readWeapon(type, character);
         statistics.read(loader, type, character);
+        if (autoController != null) autoController.tick(loader);
+        autoReady = true;
         writeSnapshot("READY", name, type.getField("clevel").getInt(character), type.getField("xu").getInt(character),
             type.getField("luong").getInt(character), boxKnown, boxKnown ? type.getField("xuInBox").getInt(character) : 0);
         AccountBootstrap.writeStatus(status, "IN_GAME");
+        inGame = true;
+        } finally {
+            if (!autoReady && autoController != null) autoController.waiting();
+        }
     }
     private void readWeapon(Class<?> type, Object character) throws Exception {
         weaponState = "UNKNOWN";
@@ -112,11 +131,12 @@ public final class GameAccountObserver {
         try { AccountBootstrap.writeStatus(status, "ERROR_CHARACTER"); writeSnapshot("ERROR", null, 0, 0, 0, false, 0); } catch (Exception ignored) { }
     }
     private void writeSnapshot(String state, String name, int level, int xu, int luong, boolean boxKnown, int boxXu) throws Exception {
-        File temp = new File(snapshot.getParentFile(), snapshot.getName() + ".tmp");
-        try (OutputStream out = new FileOutputStream(temp)) {
-            XMLStreamWriter xml = XMLOutputFactory.newFactory().createXMLStreamWriter(out, "UTF-8");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        {
+            XMLStreamWriter xml = xmlFactory.createXMLStreamWriter(out, "UTF-8");
             xml.writeStartDocument("UTF-8", "1.0"); xml.writeStartElement("Character"); xml.writeAttribute("state", state);
             if (name != null) {
+                if (loginUtc != null) xml.writeAttribute("loginUtc", loginUtc);
                 xml.writeAttribute("name", name); xml.writeAttribute("level", String.valueOf(level));
                 xml.writeAttribute("xu", String.valueOf(xu)); xml.writeAttribute("luong", String.valueOf(luong));
                 xml.writeAttribute("boxKnown", String.valueOf(boxKnown));
@@ -130,6 +150,12 @@ public final class GameAccountObserver {
             }
             xml.writeEndElement(); xml.writeEndDocument(); xml.close();
         }
+        byte[] content = out.toByteArray();
+        // Keep a heartbeat for stale-data detection, without rewriting stable data each tick.
+        if (java.util.Arrays.equals(lastSnapshot, content) && System.currentTimeMillis() - lastSnapshotWrite < 10000 && snapshot.isFile()) return;
+        File temp = new File(snapshot.getParentFile(), snapshot.getName() + ".tmp");
+        Files.write(temp.toPath(), content);
         Files.move(temp.toPath(), snapshot.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        lastSnapshot = content; lastSnapshotWrite = System.currentTimeMillis();
     }
 }

@@ -12,6 +12,8 @@
   <AutoNstDelay>10</AutoNstDelay>
   <TabProxyMap></TabProxyMap>
   <ShowUnder8>true</ShowUnder8>
-  <ShowTrackedItems>false</ShowTrackedItems>
-  <TrackedItemIds></TrackedItemIds>
+  <ShowTrackedItems>true</ShowTrackedItems>
+  <TrackedItemIds>454</TrackedItemIds>
+  <VpsLight>true</VpsLight>
+  <JavaHeapMb>128</JavaHeapMb>
 </Settings>

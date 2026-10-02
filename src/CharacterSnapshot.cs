@@ -10,6 +10,7 @@ namespace QltkAccounts
     public sealed class CharacterSnapshot
     {
         public string Display;
+        public bool IsReady;
         public string EquipmentDisplay = "Chưa đọc được trang bị";
         readonly Dictionary<int, string> tracked = new Dictionary<int, string>();
         string inventoryWarning = "Chưa đọc được vật phẩm";
@@ -69,7 +70,7 @@ namespace QltkAccounts
             string weaponState = (string)element.Attribute("weaponState");
             string weapon = weaponState == "EQUIPPED" ? "Lv " + Number(element, "weaponLevel") + " +" + Number(element, "weaponUpgrade") :
                 weaponState == "NONE" ? "Chưa trang bị" : "Chưa đọc được";
-            var result = new CharacterSnapshot { Display = Clean(name) + " (Lv " + Number(element, "level") + ") | " +
+            var result = new CharacterSnapshot { IsReady = true, Display = Clean(name) + " (Lv " + Number(element, "level") + ") | " +
                 "Xu: " + Number(element, "xu").ToString("N0", culture) + " | Rương: " + chest + " | " +
                 "Lượng: " + Number(element, "luong").ToString("N0", culture) + " | VK: " + weapon };
             result.ReadStatistics(element); return result;

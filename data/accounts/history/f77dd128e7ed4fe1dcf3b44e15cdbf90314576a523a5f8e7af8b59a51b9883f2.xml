@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<AccountHistory key="f77dd128e7ed4fe1dcf3b44e15cdbf90314576a523a5f8e7af8b59a51b9883f2" updatedUtc="2026-10-02T08:56:32.7304294Z" loginUtc="2026-10-02T08:56:32.6900000Z">
+  <Character state="READY" loginUtc="2026-10-02T08:56:32.690Z" name="testccc" level="51" xu="600000" luong="901" boxKnown="true" boxXu="0" weaponState="EQUIPPED" weaponLevel="50" weaponUpgrade="8">
+    <Equipment known="true">
+      <Item name="Dây Hoắc Tuyến" upgrade="3" />
+      <Item name="Áo Vải Bông" upgrade="0" />
+      <Item name="Dây Chuyền Lục Bảo" upgrade="0" />
+      <Item name="Huyết Hổ Thủ" upgrade="0" />
+      <Item name="Nhẫn Bạc" upgrade="0" />
+      <Item name="Quần Vải Bông" upgrade="0" />
+      <Item name="Phỉ Thúy Bội" upgrade="0" />
+      <Item name="Kim Giáp Ngoa" upgrade="0" />
+      <Item name="Bùa Kháng Ma" upgrade="0" />
+    </Equipment>
+    <Inventory bagKnown="true" boxKnown="true">
+      <Item id="454" name="Chuyển tinh thạch" quantity="0" />
+    </Inventory>
+  </Character>
+</AccountHistory>

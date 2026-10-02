@@ -110,10 +110,15 @@ namespace QltkAccounts
         public string EmulatorPath, GamePath, JavaPath;
         public int MaxTab, Width, Height;
         public bool AutoLogin;
+        public bool VpsLight;
+        public int JavaHeapMb;
+        public int LaunchDelayMs { get { return VpsLight ? 5000 : 1200; } }
+        public int PollIntervalMs { get { return VpsLight ? 1500 : 800; } }
         public bool ShowUnder8, ShowTrackedItems;
         public int[] TrackedItemIds = new int[0];
-        public static void SaveLaunch(string root, string emulator, string game, int width, int height, bool autoLogin, bool? showUnder8 = null, bool? showTrackedItems = null, string trackedItemIds = null, int? maxTab = null)
+        public static void SaveLaunch(string root, string emulator, string game, int width, int height, bool autoLogin, bool? showUnder8 = null, bool? showTrackedItems = null, string trackedItemIds = null, int? maxTab = null, bool? vpsLight = null, int? javaHeapMb = null)
         {
+            if (javaHeapMb.HasValue && (javaHeapMb.Value < 64 || javaHeapMb.Value > 512)) throw new InvalidDataException("Heap Java phải nằm trong 64–512 MB.");
             if (maxTab.HasValue && (maxTab.Value < 1 || maxTab.Value > 200)) throw new InvalidDataException("MaxTab phải nằm trong 1–200.");
             int[] ids = trackedItemIds == null ? null : AccountParser.ParseItemIds(trackedItemIds);
             if (width < 100 || width > 2000 || height < 100 || height > 2000)
@@ -135,6 +140,8 @@ namespace QltkAccounts
             document.Root.SetElementValue("TabHeight", height);
             document.Root.SetElementValue("AutoLogin", autoLogin);
             if (maxTab.HasValue) document.Root.SetElementValue("MaxTab", maxTab.Value);
+            if (vpsLight.HasValue) document.Root.SetElementValue("VpsLight", vpsLight.Value);
+            if (javaHeapMb.HasValue) document.Root.SetElementValue("JavaHeapMb", javaHeapMb.Value);
             if (showUnder8.HasValue) document.Root.SetElementValue("ShowUnder8", showUnder8.Value);
             if (showTrackedItems.HasValue) document.Root.SetElementValue("ShowTrackedItems", showTrackedItems.Value);
             if (ids != null) document.Root.SetElementValue("TrackedItemIds", string.Join(",", ids));
@@ -153,8 +160,9 @@ namespace QltkAccounts
             Func<string, string> resolve = p => Path.GetFullPath(Path.IsPathRooted(p) ? p : Path.Combine(root, p));
             bool auto; if (!bool.TryParse(value("AutoLogin", "true"), out auto)) throw new InvalidDataException("AutoLogin phải là true hoặc false.");
             bool under8, tracked;
+            bool light; if (!bool.TryParse(value("VpsLight", "true"), out light)) throw new InvalidDataException("VpsLight phải là true hoặc false.");
             if (!bool.TryParse(value("ShowUnder8", "false"), out under8) || !bool.TryParse(value("ShowTrackedItems", "false"), out tracked)) throw new InvalidDataException("Công tắc thống kê phải là true hoặc false.");
-            return new AppSettings { EmulatorPath = resolve(value("EmulatorPath", "MICRO_NST.jar")), GamePath = resolve(value("GamePath", "game.jar")), JavaPath = Path.Combine(root, "jre", "bin", "javaw.exe"), MaxTab = number("MaxTab", 5, 1, 200), Width = number("TabWidth", 220, 100, 2000), Height = number("TabHeight", 240, 100, 2000), AutoLogin = auto, ShowUnder8 = under8, ShowTrackedItems = tracked, TrackedItemIds = AccountParser.ParseItemIds(value("TrackedItemIds", "")) };
+            return new AppSettings { EmulatorPath = resolve(value("EmulatorPath", "MICRO_NST.jar")), GamePath = resolve(value("GamePath", "game.jar")), JavaPath = Path.Combine(root, "jre", "bin", "javaw.exe"), MaxTab = number("MaxTab", 5, 1, 200), Width = number("TabWidth", 220, 100, 2000), Height = number("TabHeight", 240, 100, 2000), AutoLogin = auto, ShowUnder8 = under8, ShowTrackedItems = tracked, TrackedItemIds = AccountParser.ParseItemIds(value("TrackedItemIds", "")), VpsLight = light, JavaHeapMb = number("JavaHeapMb", light ? 128 : 256, 64, 512) };
         }
     }
     public static class LaunchArguments

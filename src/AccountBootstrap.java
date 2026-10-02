@@ -1,4 +1,3 @@
-import java.awt.Frame;
 import java.io.*;
 import java.lang.reflect.*;
 import java.net.*;
@@ -16,6 +15,7 @@ import org.microemu.util.RecordStoreImpl;
 
 /** Starts the existing emulator; no passwords appear in the command line or status. */
 public final class AccountBootstrap {
+    private static final java.util.Map<String, String> statuses = new java.util.HashMap<String, String>();
     public static void main(String[] args) {
         if (args.length == 2 && args[0].equals("--verify")) {
             try { verifyContract(new File(args[1])); System.out.println("Game account bridge contract: OK"); }
@@ -41,7 +41,7 @@ public final class AccountBootstrap {
             writeStatus(status, "STARTING");
             // The unmodified emulator retains its own MIDlet classloader and device setup.
             Main.main(new String[] { "--tabid", String.valueOf(tab), "--resizableDevice", String.valueOf(width), String.valueOf(height), "--openjar", game.getAbsolutePath() });
-            for (Frame frame : Frame.getFrames()) if (frame instanceof Main) frame.setTitle("Tab " + tab + " - " + username);
+            // AccountManager owns visible titles; tab is only the persistent emulator ID.
             if (!autoLogin) { writeStatus(status, "READY_MANUAL"); new GameAccountObserver(status, false).start(); return; }
             loginWhenReady(username, password, server, status);
             new GameAccountObserver(status, true).start();
@@ -101,10 +101,13 @@ public final class AccountBootstrap {
         try (DataOutputStream out = new DataOutputStream(new FileOutputStream(temp))) { record.write(out); }
         Files.move(temp.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
-    public static void writeStatus(File status, String value) throws IOException {
+    public static synchronized void writeStatus(File status, String value) throws IOException {
+        String key = status.getAbsolutePath();
+        if (value.equals(statuses.get(key)) && status.isFile()) return;
         File temp = new File(status.getParentFile(), status.getName() + ".tmp");
         Files.write(temp.toPath(), value.getBytes(StandardCharsets.UTF_8));
         Files.move(temp.toPath(), status.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        statuses.put(key, value);
     }
     static void loginWhenReady(final String username, final String password, final int server, final File status) throws Exception {
         long deadline = System.currentTimeMillis() + 120000;

@@ -11,14 +11,14 @@ $helper = Join-Path $root 'build/compiler-helper'
 New-Item -ItemType Directory -Path $helper -Force | Out-Null
 & $javac -encoding UTF-8 -d $helper (Join-Path $root 'tools/CompileJava.java')
 if ($LASTEXITCODE -ne 0) { throw 'Compiler helper build failed.' }
-& (Join-Path $JdkPath 'bin/java.exe') -cp $helper CompileJava (Join-Path $root 'MICRO_NST.jar') $classes (Join-Path $root 'src/AccountBootstrap.java') (Join-Path $root 'src/GameAccountObserver.java') (Join-Path $root 'src/ItemStatistics.java')
+& (Join-Path $JdkPath 'bin/java.exe') -cp $helper CompileJava (Join-Path $root 'MICRO_NST.jar') $classes (Join-Path $root 'src/AccountBootstrap.java') (Join-Path $root 'src/GameAccountObserver.java') (Join-Path $root 'src/ItemStatistics.java') (Join-Path $root 'src/GameAutoController.java')
 if ($LASTEXITCODE -ne 0) { throw 'Bridge compilation failed.' }
 & $jar cf (Join-Path $root 'account-bridge.jar') -C $classes .
 if ($LASTEXITCODE -ne 0) { throw 'Bridge packaging failed.' }
 $managerBuild = Join-Path $root 'build/manager'
 New-Item -ItemType Directory -Path $managerBuild -Force | Out-Null
 $stagedManager = Join-Path $managerBuild 'QLTK_Accounts.exe'
-& $compiler /nologo /target:winexe /platform:anycpu "/out:$stagedManager" /r:System.Core.dll /r:System.Xml.Linq.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll (Join-Path $root 'src/AccountCore.cs') (Join-Path $root 'src/CharacterSnapshot.cs') (Join-Path $root 'src/AccountManager.cs')
+& $compiler /nologo /target:winexe /platform:anycpu "/out:$stagedManager" /r:System.Core.dll /r:System.Xml.Linq.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll (Join-Path $root 'src/AccountCore.cs') (Join-Path $root 'src/CharacterSnapshot.cs') (Join-Path $root 'src/AccountHistory.cs') (Join-Path $root 'src/ProcessSleep.cs') (Join-Path $root 'src/AutoSettings.cs') (Join-Path $root 'src/AutoSettingsDialog.cs') (Join-Path $root 'src/AccountManager.cs')
 if ($LASTEXITCODE -ne 0) { throw 'QLTK compilation failed.' }
 # Stage first so a running tool never prevents compilation or loses its binary.
 $target = Join-Path $root 'QLTK_Accounts.exe'

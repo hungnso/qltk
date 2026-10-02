@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<AccountHistory key="5fc13890c786473f9c878d23ad399617537137521324ee83643a05b724d3b490" updatedUtc="2026-10-02T04:00:15.9259663Z" loginUtc="2026-10-02T04:00:15.8690000Z">
+  <Character state="READY" loginUtc="2026-10-02T04:00:15.869Z" name="ĐịtNhầmVợBạn" level="115" xu="49752053" luong="300" boxKnown="true" boxXu="0" weaponState="EQUIPPED" weaponLevel="90" weaponUpgrade="16">
+    <Equipment known="true"></Equipment>
+    <Inventory bagKnown="true" boxKnown="true">
+      <Item id="454" name="Chuyển tinh thạch" quantity="7" />
+    </Inventory>
+  </Character>
+</AccountHistory>
